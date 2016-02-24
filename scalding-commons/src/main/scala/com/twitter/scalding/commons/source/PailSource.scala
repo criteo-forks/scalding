@@ -16,15 +16,17 @@ limitations under the License.
 
 package com.twitter.scalding.commons.source
 
-import scala.reflect.ClassTag
+import java.io.File
+import java.util.{ List => JList }
 
+import cascading.tap.Tap
 import com.backtype.cascading.tap.PailTap
 import com.backtype.hadoop.pail.PailStructure
-import cascading.tap.Tap
 import com.twitter.bijection.Injection
 import com.twitter.scalding._
-import java.util.{ List => JList }
+
 import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
 
 /**
  * The PailSource enables scalding integration with the Pail class in the
@@ -67,7 +69,7 @@ object PailSource {
    *
    * SEE EXAMPLE : https://gist.github.com/krishnanraman/5224937
    */
-  def source[T](rootPath: String,
+  def source[T: TupleConverter](rootPath: String,
     subPaths: Array[List[String]])(implicit cmf: ClassTag[T],
       injection: Injection[T, Array[Byte]]): PailSource[T] = {
 
@@ -114,7 +116,7 @@ object PailSource {
   /**
    * Generic version of Pail source accepts a PailStructure.
    */
-  def source[T](rootPath: String, structure: PailStructure[T], subPaths: Array[List[String]]): PailSource[T] = {
+  def source[T: TupleConverter](rootPath: String, structure: PailStructure[T], subPaths: Array[List[String]]): PailSource[T] = {
     assert(subPaths != null && subPaths.size > 0)
     new PailSource(rootPath, structure, subPaths)
   }
@@ -135,7 +137,7 @@ object PailSource {
   /**
    * Alternate Pail source construction - specify 3 params, rest implicit
    */
-  def source[T](rootPath: String,
+  def source[T: TupleConverter](rootPath: String,
     validator: (List[String]) => Boolean,
     subPaths: Array[List[String]])(implicit cmf: ClassTag[T],
       injection: Injection[T, Array[Byte]]): PailSource[T] = {
@@ -147,7 +149,6 @@ object PailSource {
 
 class PailSource[T] private (rootPath: String, structure: PailStructure[T], subPaths: Array[List[String]] = null)(implicit conv: TupleConverter[T])
   extends Source with Mappable[T] {
-  import Dsl._
 
   override def converter[U >: T] = TupleConverter.asSuperConverter[T, U](conv)
   val fieldName = "pailItem"
@@ -173,6 +174,10 @@ class PailSource[T] private (rootPath: String, structure: PailStructure[T], subP
     }
   }
 
+  override def equals(that: Any) = (that != null) && (that.toString == toString)
+  override def hashCode = toString.hashCode
+  override def toString =
+    s"${getClass.getName}($rootPath${File.separator}${if (subPaths != null) subPaths.flatMap(_.mkString(File.separator)).mkString(",")})"
 }
 
 /**
